@@ -630,13 +630,13 @@
         if (!track) return;
 
         const state = row.__carouselState || {};
-        const speed = row.classList.contains('row-left') ? 48 : 42;
-        state.speed = speed;
         state.offset = 0;
         state.dragging = false;
         state.startX = 0;
         state.startOffset = 0;
-        state.contentWidth = track.scrollWidth / 2;
+        state.minOffset = 0;
+        state.maxOffset = 0;
+        state.speed = row.classList.contains('row-left') ? 18 : 16;
         state.lastTime = performance.now();
         state.rafId = null;
         row.__carouselState = state;
@@ -644,6 +644,18 @@
         const updateTrack = () => {
           track.style.transform = `translate3d(${state.offset}px, 0, 0)`;
         };
+
+        const updateBounds = () => {
+          state.maxOffset = 0;
+          state.minOffset = row.clientWidth - track.scrollWidth;
+          if (state.minOffset > 0) {
+            state.minOffset = 0;
+          }
+          state.offset = Math.max(state.minOffset, Math.min(state.maxOffset, state.offset));
+          updateTrack();
+        };
+
+        const clampOffset = (value) => Math.max(state.minOffset, Math.min(state.maxOffset, value));
 
         const stopAutoScroll = () => {
           if (state.rafId) {
@@ -660,8 +672,8 @@
               const delta = (now - state.lastTime) / 1000;
               state.offset -= state.speed * delta;
 
-              if (state.offset <= -state.contentWidth) {
-                state.offset = 0;
+              if (state.offset <= state.minOffset) {
+                state.offset = state.maxOffset;
               }
 
               updateTrack();
@@ -673,8 +685,6 @@
 
           state.rafId = requestAnimationFrame(tick);
         };
-
-        const clampOffset = (value) => Math.max(-state.contentWidth, Math.min(0, value));
 
         row.addEventListener('pointerdown', (event) => {
           if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -699,6 +709,7 @@
           if (!state.dragging) return;
           state.dragging = false;
           row.classList.remove('is-dragging');
+          state.offset = clampOffset(state.offset);
           state.startOffset = state.offset;
           startAutoScroll();
           if (event?.pointerId != null) {
@@ -718,7 +729,7 @@
           }
         });
 
-        updateTrack();
+        updateBounds();
         startAutoScroll();
       });
     }
